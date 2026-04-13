@@ -334,7 +334,7 @@ async function generateFeedback() {
   hideError();
 
   try {
-    const res = await fetch('/.netlify/functions/generate-feedback-gemini', {
+    const res = await fetch('/api/generate-feedback-gemini', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, s1, s2, s3, s4 })
