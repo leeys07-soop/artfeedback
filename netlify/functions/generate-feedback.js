@@ -39,8 +39,8 @@ exports.handler = async function(event, context) {
 인사말이나 서명 없이 피드백 본문만 작성해주세요.`;
 
     const response = await fetch(
-      // [수정] 모델명을 존재하지 않는 2.5 대신 안정적인 1.5-flash로 변경했습니다.
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      // [수정 완료] v1beta를 v1으로, 모델명을 1.5-flash로 정확히 맞췄습니다.
+      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -63,8 +63,7 @@ exports.handler = async function(event, context) {
 
     if (!response.ok) {
       const err = await response.json();
-      // [수정] 유료 계정이므로 '무료 한도 초과' 메시지 대신 실제 에러 원인을 출력하도록 변경했습니다.
-      throw new Error(err.error?.message || 'Gemini API 호출 중 오류가 발생했습니다.');
+      throw new Error(err.error?.message || '오류가 발생했습니다.');
     }
 
     const data = await response.json();
@@ -74,7 +73,7 @@ exports.handler = async function(event, context) {
       statusCode: 200,
       headers: { 
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*' // [추가] 브라우저에서 직접 호출 시 발생할 수 있는 보안 차단을 방지합니다.
+        'Access-Control-Allow-Origin': '*'
       },
       body: JSON.stringify({ text })
     };
