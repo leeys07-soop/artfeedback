@@ -39,8 +39,7 @@ exports.handler = async function(event, context) {
 인사말이나 서명 없이 피드백 본문만 작성해주세요.`;
 
     const response = await fetch(
-      // [수정 완료] v1beta를 v1으로, 모델명을 1.5-flash로 정확히 맞췄습니다.
-      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -63,6 +62,7 @@ exports.handler = async function(event, context) {
 
     if (!response.ok) {
       const err = await response.json();
+      if (response.status === 429) throw new Error('요청이 너무 많습니다. 잠시 후 다시 시도해주세요.');
       throw new Error(err.error?.message || '오류가 발생했습니다.');
     }
 
@@ -71,7 +71,7 @@ exports.handler = async function(event, context) {
 
     return {
       statusCode: 200,
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'
       },
