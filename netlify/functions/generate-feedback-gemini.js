@@ -5,7 +5,7 @@ exports.handler = async function(event, context) {
 
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
   if (!GEMINI_API_KEY) {
-    return { statusCode: 500, body: JSON.stringify({ error: 'API Key가 설정되지 않았습니다.' }) };
+    return { statusCode: 500, body: JSON.stringify({ error: 'Gemini API Key가 설정되지 않았습니다.' }) };
   }
 
   try {
@@ -55,14 +55,14 @@ exports.handler = async function(event, context) {
 문장을 중간에 끊지 않고 반드시 완성합니다.` }]
           },
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 4096, temperature: 0.9 }
+          generationConfig: { maxOutputTokens: 1024, temperature: 0.9 }
         })
       }
     );
 
     if (!response.ok) {
       const err = await response.json();
-      if (response.status === 429) throw new Error('요청이 너무 많습니다. 잠시 후 다시 시도해주세요.');
+      if (response.status === 429) throw new Error('현재 Gemini 서버가 혼잡합니다. OpenAI 버전 링크를 사용해주세요.');
       throw new Error(err.error?.message || '오류가 발생했습니다.');
     }
 
@@ -71,10 +71,7 @@ exports.handler = async function(event, context) {
 
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
       body: JSON.stringify({ text })
     };
 
