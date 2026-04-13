@@ -1,399 +1,86 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>하늘숲아트 피드백 생성기</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --gray: #5E5B5B;
-    --gray-light: #7a7777;
-    --pink: #FFAFDF;
-    --pink-light: #FFF5FB;
-    --pink-mid: #FFD6EF;
-    --mint: #AFFFCF;
-    --mint-dark: #085041;
-    --mint-mid: #1D9E75;
-    --white: #ffffff;
-    --text: #2C2C2A;
-    --text-mid: #5F5E5A;
-    --border: #F0D8E8;
+exports.handler = async function(event, context) {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    font-family: 'Noto Sans KR', sans-serif;
-    background: var(--pink-light);
-    min-height: 100vh;
-    color: var(--text);
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+  if (!GEMINI_API_KEY) {
+    return { statusCode: 500, body: JSON.stringify({ error: 'API Key가 설정되지 않았습니다.' }) };
   }
-
-  /* ── 헤더 ── */
-  header {
-    background: var(--gray);
-    padding: 18px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    box-shadow: 0 2px 12px rgba(94,91,91,0.15);
-  }
-  .header-left { display: flex; align-items: center; gap: 10px; }
-  .header-logo {
-    width: 34px; height: 34px; border-radius: 50%;
-    background: var(--pink); display: flex; align-items: center;
-    justify-content: center; font-size: 16px;
-  }
-  .header-title { color: var(--pink); font-size: 17px; font-weight: 700; font-family: 'Gowun Dodum', sans-serif; letter-spacing: 0.02em; }
-  .header-sub { color: rgba(255,175,223,0.55); font-size: 12px; margin-top: 2px; }
-  .api-btn {
-    background: transparent; border: 1px solid rgba(255,175,223,0.4);
-    color: var(--pink); font-size: 12px; padding: 6px 12px;
-    border-radius: 20px; cursor: pointer; font-family: 'Noto Sans KR', sans-serif;
-    transition: all 0.2s;
-  }
-  .api-btn:hover { background: rgba(255,175,223,0.1); }
-
-  /* ── API Key 설정 패널 ── */
-  .api-panel {
-    background: var(--gray); border-bottom: 1px solid rgba(255,175,223,0.2);
-    padding: 16px 24px; display: none; animation: slideDown 0.2s ease;
-  }
-  .api-panel.open { display: block; }
-  @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
-  .api-panel-inner { max-width: 640px; margin: 0 auto; display: flex; gap: 10px; align-items: center; }
-  .api-panel label { color: var(--pink); font-size: 12px; white-space: nowrap; font-weight: 500; }
-  .api-panel input {
-    flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,175,223,0.3);
-    color: var(--white); font-size: 13px; padding: 8px 12px; border-radius: 8px;
-    font-family: monospace; outline: none;
-  }
-  .api-panel input:focus { border-color: var(--pink); }
-  .api-panel input::placeholder { color: rgba(255,255,255,0.3); }
-  .api-save-btn {
-    background: var(--pink); color: var(--gray); font-size: 12px; font-weight: 700;
-    padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer;
-    font-family: 'Noto Sans KR', sans-serif; white-space: nowrap; transition: opacity 0.2s;
-  }
-  .api-save-btn:hover { opacity: 0.85; }
-  .api-tip { color: rgba(255,175,223,0.55); font-size: 11px; margin-top: 6px; }
-
-  /* ── 메인 컨테이너 ── */
-  main { max-width: 680px; margin: 0 auto; padding: 28px 20px 60px; }
-
-  /* ── 학생 이름 ── */
-  .name-card {
-    background: var(--white); border: 1px solid var(--pink-mid);
-    border-radius: 14px; padding: 18px 20px; margin-bottom: 16px;
-    display: flex; align-items: center; gap: 14px;
-  }
-  .name-card label { font-size: 13px; font-weight: 700; color: var(--gray); white-space: nowrap; }
-  .name-input {
-    flex: 1; border: none; border-bottom: 1.5px solid var(--pink-mid);
-    font-size: 16px; font-family: 'Noto Sans KR', sans-serif;
-    color: var(--text); background: transparent; outline: none; padding: 4px 0;
-    transition: border-color 0.2s;
-  }
-  .name-input:focus { border-color: var(--pink); }
-  .name-input::placeholder { color: #ccc; }
-
-  /* ── Step 카드 ── */
-  .step-card {
-    background: var(--white); border: 1px solid var(--pink-mid);
-    border-radius: 14px; padding: 18px 20px; margin-bottom: 12px;
-    transition: box-shadow 0.2s, border-color 0.2s;
-  }
-  .step-card:focus-within { border-color: var(--pink); box-shadow: 0 4px 16px rgba(255,175,223,0.2); }
-  .step-card.key-card { border-color: var(--gray); }
-  .step-card.key-card:focus-within { border-color: var(--gray); box-shadow: 0 4px 16px rgba(94,91,91,0.15); }
-
-  .step-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
-  .step-num {
-    width: 26px; height: 26px; border-radius: 50%; background: var(--pink-mid);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 700; color: var(--gray); flex-shrink: 0; margin-top: 1px;
-  }
-  .step-num.key { background: var(--gray); color: var(--pink); }
-  .step-title-wrap {}
-  .step-title { font-size: 14px; font-weight: 700; color: var(--gray); }
-  .step-tip { font-size: 11px; color: #bbb; margin-top: 3px; line-height: 1.5; }
-
-  .step-textarea {
-    width: 100%; border: none; border-top: 1px solid #f5e6f0;
-    padding: 10px 0 0; margin-top: 10px; font-size: 14px;
-    font-family: 'Noto Sans KR', sans-serif; color: var(--text);
-    background: transparent; outline: none; resize: none; min-height: 64px;
-    line-height: 1.7;
-  }
-  .step-textarea::placeholder { color: #ddd; }
-
-  /* ── 생성 버튼 ── */
-  .gen-btn {
-    width: 100%; background: var(--gray); color: var(--pink);
-    border: none; border-radius: 14px; padding: 16px;
-    font-size: 15px; font-weight: 700; font-family: 'Noto Sans KR', sans-serif;
-    cursor: pointer; margin: 20px 0 16px; letter-spacing: 0.03em;
-    transition: all 0.2s; position: relative; overflow: hidden;
-  }
-  .gen-btn:hover { background: var(--gray-light); }
-  .gen-btn:active { transform: scale(0.99); }
-  .gen-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-  .gen-btn .loading-dots { display: none; }
-  .gen-btn.loading .btn-text { display: none; }
-  .gen-btn.loading .loading-dots { display: inline; }
-
-  /* ── 결과창 ── */
-  .result-box {
-    background: var(--white); border: 1.5px solid var(--mint);
-    border-radius: 14px; padding: 20px; display: none;
-    animation: fadeUp 0.3s ease;
-  }
-  .result-box.visible { display: block; }
-  @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-  .result-label {
-    display: flex; align-items: center; gap: 7px;
-    font-size: 12px; font-weight: 700; color: var(--mint-mid); margin-bottom: 12px;
-  }
-  .result-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--mint); border: 1.5px solid var(--mint-mid);
-  }
-
-  .result-text {
-    font-size: 14px; line-height: 1.95; color: var(--text);
-    font-family: 'Gowun Dodum', sans-serif;
-    border: none; width: 100%; outline: none; resize: none;
-    background: transparent; min-height: 120px;
-  }
-
-  .result-actions { display: flex; gap: 10px; margin-top: 16px; }
-  .copy-btn {
-    flex: 1; background: var(--gray); color: var(--mint);
-    border: none; border-radius: 10px; padding: 12px;
-    font-size: 13px; font-weight: 700; font-family: 'Noto Sans KR', sans-serif;
-    cursor: pointer; transition: all 0.2s; letter-spacing: 0.02em;
-  }
-  .copy-btn:hover { background: var(--gray-light); }
-  .copy-btn.copied { background: var(--mint-mid); color: var(--white); }
-
-  .redo-btn {
-    flex: 1; background: var(--pink-light); border: 1px solid var(--pink-mid);
-    color: var(--gray); border-radius: 10px; padding: 12px;
-    font-size: 13px; font-weight: 500; font-family: 'Noto Sans KR', sans-serif;
-    cursor: pointer; transition: all 0.2s;
-  }
-  .redo-btn:hover { background: var(--pink-mid); }
-
-  /* ── 토스트 ── */
-  .toast {
-    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
-    background: var(--gray); color: var(--mint); font-size: 13px; font-weight: 500;
-    padding: 12px 24px; border-radius: 30px; opacity: 0;
-    transition: all 0.3s; pointer-events: none; white-space: nowrap;
-    font-family: 'Noto Sans KR', sans-serif; z-index: 999;
-  }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-  /* ── 에러 ── */
-  .error-box {
-    background: #fff0f0; border: 1px solid #ffcccc;
-    border-radius: 10px; padding: 14px 16px; font-size: 13px;
-    color: #c0392b; display: none; margin-top: 12px; line-height: 1.6;
-  }
-  .error-box.visible { display: block; }
-
-  /* ── 반응형 ── */
-  @media (max-width: 480px) {
-    header { padding: 14px 16px; }
-    main { padding: 20px 14px 50px; }
-    .header-title { font-size: 15px; }
-  }
-</style>
-</head>
-<body>
-
-<header>
-  <div class="header-left">
-    <div class="header-logo">🌿</div>
-    <div>
-      <div class="header-title">하늘숲아트</div>
-      <div class="header-sub">감성코칭 피드백 생성기</div>
-    </div>
-  </div>
-</header>
-
-<main>
-
-  <!-- 학생 이름 -->
-  <div class="name-card">
-    <label>학생 이름</label>
-    <input class="name-input" id="studentName" type="text" placeholder="예: 김지유" maxlength="20">
-  </div>
-
-  <!-- Step 1 -->
-  <div class="step-card">
-    <div class="step-header">
-      <div class="step-num">1</div>
-      <div class="step-title-wrap">
-        <div class="step-title">아이의 마음</div>
-        <div class="step-tip">수업 시작 시 기분이나 태도를 짧게 적어주세요<br>예: 낯설어함 / 편안해보임 / 긴장함 / 호기심 넘침</div>
-      </div>
-    </div>
-    <textarea class="step-textarea" id="step1" placeholder="예: 처음엔 낯설어했지만 점점 편안해짐"></textarea>
-  </div>
-
-  <!-- Step 2 -->
-  <div class="step-card">
-    <div class="step-header">
-      <div class="step-num">2</div>
-      <div class="step-title-wrap">
-        <div class="step-title">수업의 과정</div>
-        <div class="step-tip">재료 사용 방식, 몰입도, 시도한 것을 적어주세요<br>예: 큰 붓 사용 / 손에 물감 묻히며 즐거워함 / 반복해서 덧칠</div>
-      </div>
-    </div>
-    <textarea class="step-textarea" id="step2" placeholder="예: 손에 물감 묻히며 즐거워함, 색을 섞는 걸 즐김"></textarea>
-  </div>
-
-  <!-- Step 3 (핵심) -->
-  <div class="step-card key-card">
-    <div class="step-header">
-      <div class="step-num key">3</div>
-      <div class="step-title-wrap">
-        <div class="step-title">성장의 기록 ★ <span style="font-size:11px;color:#bbb;font-weight:400;">피드백의 핵심</span></div>
-        <div class="step-tip">이전 수업과 비교해 달라진 점을 적어주세요<br>예: 지난번엔 도구만 썼는데 오늘은 손으로 직접 탐색 / 처음엔 "못해요" 했는데 오늘은 혼자 완성</div>
-      </div>
-    </div>
-    <textarea class="step-textarea" id="step3" placeholder="예: 지난번엔 도구만 썼는데 오늘은 손으로 직접 탐색함"></textarea>
-  </div>
-
-  <!-- Step 4 -->
-  <div class="step-card">
-    <div class="step-header">
-      <div class="step-num">4</div>
-      <div class="step-title-wrap">
-        <div class="step-title">강사의 코칭</div>
-        <div class="step-tip">수업 중 나눈 격려의 말이나 정서적 교감을 적어주세요<br>예: 자유로운 표현이 멋지다고 칭찬해줌 / 잘 하고 있다고 응원함</div>
-      </div>
-    </div>
-    <textarea class="step-textarea" id="step4" placeholder="예: 자유로운 표현이 멋지다고 칭찬해줌"></textarea>
-  </div>
-
-  <!-- 생성 버튼 -->
-  <button class="gen-btn" id="genBtn" onclick="generateFeedback()">
-    <span class="btn-text">피드백 생성하기</span>
-    <span class="loading-dots">✦ 작성 중입니다...</span>
-  </button>
-
-  <!-- 에러 -->
-  <div class="error-box" id="errorBox"></div>
-
-  <!-- 결과창 -->
-  <div class="result-box" id="resultBox">
-    <div class="result-label">
-      <div class="result-dot"></div>
-      생성된 피드백 — 직접 수정 후 복사하세요
-    </div>
-    <textarea class="result-text" id="resultText" rows="8"></textarea>
-    <div class="result-actions">
-      <button class="copy-btn" id="copyBtn" onclick="copyFeedback()">복사하기</button>
-      <button class="redo-btn" onclick="generateFeedback()">다시 생성</button>
-    </div>
-  </div>
-
-</main>
-
-<div class="toast" id="toast"></div>
-
-<script>
-async function generateFeedback() {
-  const name = document.getElementById('studentName').value.trim() || '아이';
-  const s1 = document.getElementById('step1').value.trim();
-  const s2 = document.getElementById('step2').value.trim();
-  const s3 = document.getElementById('step3').value.trim();
-  const s4 = document.getElementById('step4').value.trim();
-
-  if (!s1 && !s2 && !s3 && !s4) {
-    showError('한 가지 이상 입력해주세요.');
-    return;
-  }
-
-  const btn = document.getElementById('genBtn');
-  btn.disabled = true;
-  btn.classList.add('loading');
-  hideError();
 
   try {
-    const res = await fetch('/.netlify/functions/generate-feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, s1, s2, s3, s4 })
-    });
+    const body = JSON.parse(event.body);
+    const { name, s1, s2, s3, s4 } = body;
 
-    if (!res.ok) {
-      const err = await res.json();
-      if (res.status === 429) throw new Error('요청이 너무 많습니다. 잠시 후 다시 시도해주세요.');
-      throw new Error(err.error || `오류가 발생했습니다. (${res.status})`);
+    const prompt = `강사가 수업 중 관찰한 내용입니다. 이를 바탕으로 학부모님께 보내는 수업 피드백을 작성해주세요.
+
+아이 이름: ${name || '아이'}
+아이의 마음: ${s1 || '기록 없음'}
+수업 과정: ${s2 || '기록 없음'}
+성장한 부분: ${s3 || '기록 없음'}
+강사가 건넨 말: ${s4 || '기록 없음'}
+
+---
+
+아래 예시와 같은 문체와 느낌으로 작성해주세요.
+
+[예시 1]
+오일파스텔로 아기오리의 부드러운 털을 표현하는 것이 쉽지 않았을 텐데도, 민영이는 차분히 집중하며 끝까지 참여하는 아름다운 모습을 보여주었습니다. 짧은 선들을 겹겹이 쌓아 올리며 다양한 색을 활용해 아기오리의 풍성한 털을 하나하나 정성껏 표현하는 과정이 인상 깊었습니다. 특히, 새로운 재료인 마카를 마주했을 때는 호기심 가득한 눈빛으로 연못생물들을 칠하며 다채로운 색감을 과감하게 시도하는 등, 스스로 탐색하고 표현의 폭을 넓혀가는 성장이 매우 돋보였습니다. 처음의 조심스러운 손길이 점차 자신감 있는 표현으로 이어지는 모습에서 민영이의 작은 용기와 예술적 잠재력을 느낄 수 있었습니다.
+
+[예시 2]
+조심스럽게 시작했던 손길이 아기 오리의 보송한 털을 표현하며 점차 자신감을 찾아갔습니다. 오일파스텔로 털을 표현하는 것이 처음엔 어렵게 느껴졌지만, 민영이는 짧은 선과 다양한 색을 사용해 아기 오리의 보드라운 털을 하나하나 정성껏 담아냈습니다. 특히 연못 생물을 칠할 때는 새로운 재료인 마카에 대한 호기심을 활짝 드러내며, 망설임 없이 다채로운 색깔을 시도하는 모습에서 민영이의 예술적 탐색이 한 층 더 깊어지고 있음을 느낄 수 있었습니다. 수업 내내 차분하게 집중하며 자신만의 세계를 완성해가는 민영이의 모습이 참 예뻤습니다.
+
+---
+
+위 예시처럼 모든 문장을 "~했습니다", "~입니다", "~됩니다" 로 끝내주세요.
+"~봐요", "~고요", "~더라고요", "~네요" 같은 친근한 말투는 절대 사용하지 마세요.
+학부모님께 드리는 정중하고 따뜻한 글이지만, 딱딱하지 않고 자연스럽게 써주세요.
+강사 메모의 내용을 반드시 글 안에 녹여내고, 마지막 문장은 마침표로 완성해주세요.
+인사말이나 서명 없이 피드백 본문만 작성해주세요.
+"○○ 학생"이라는 표현은 쓰지 않고 "${name}이가", "${name}이는" 처럼 이름만 씁니다.
+"오늘 수업에서", "이번 시간에" 같은 뻔한 첫 문장은 쓰지 않습니다.`;
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            role: 'user',
+            parts: [{ 
+              text: `당신은 10년 경력의 미술학원 원장입니다. 다음 지침을 엄격히 따라 피드백을 작성하세요.\n\n${prompt}` 
+            }]
+          }],
+          generationConfig: { 
+            maxOutputTokens: 2048, 
+            temperature: 0.7 
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || 'API 호출 오류');
     }
 
-    const data = await res.json();
-    const text = data.text || '';
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    document.getElementById('resultText').value = text;
-    document.getElementById('resultBox').classList.add('visible');
-    document.getElementById('resultBox').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    return {
+      statusCode: 200,
+      headers: { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*' 
+      },
+      body: JSON.stringify({ text })
+    };
 
   } catch (e) {
-    showError(e.message || '오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
-  } finally {
-    btn.disabled = false;
-    btn.classList.remove('loading');
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: e.message })
+    };
   }
-}
-
-function copyFeedback() {
-  const text = document.getElementById('resultText').value;
-  if (!text) return;
-  navigator.clipboard.writeText(text).then(() => {
-    const btn = document.getElementById('copyBtn');
-    btn.textContent = '복사됐어요 ✓';
-    btn.classList.add('copied');
-    showToast('클립보드에 복사됐습니다 ✓');
-    setTimeout(() => {
-      btn.textContent = '복사하기';
-      btn.classList.remove('copied');
-    }, 2000);
-  });
-}
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
-}
-
-function showError(msg) {
-  const box = document.getElementById('errorBox');
-  box.textContent = msg;
-  box.classList.add('visible');
-}
-
-function hideError() {
-  document.getElementById('errorBox').classList.remove('visible');
-}
-
-// textarea 자동 높이
-document.querySelectorAll('.step-textarea').forEach(ta => {
-  ta.addEventListener('input', function() {
-    this.style.height = 'auto';
-    this.style.height = this.scrollHeight + 'px';
-  });
-});
-</script>
-</body>
-</html>
+};
